@@ -1,0 +1,57 @@
+version: '3'
+
+volumes:
+  portainer_data:
+  postgres_data:
+    driver: local
+
+services:
+  portainer:
+    image: portainer/portainer
+    command: -H unix:///var/run/docker.sock
+    volumes:
+     - /var/run/docker.sock:/var/run/docker.sock
+     - portainer_data:/data
+    restart: always 
+    ports:
+     - 30001:9000
+
+  vault:
+    image: vault
+    ports:
+      - "30002:8200"
+    volumes:
+      - ./config/vault.json:/config.json
+    cap_add:
+      - IPC_LOCK
+    networks:
+      - vault
+    command: >-
+      server
+      -config=/config.json
+
+  postgres:
+      image: postgres
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_DB: keycloak
+        POSTGRES_USER: keycloak
+        POSTGRES_PASSWORD: password
+      depends_on:
+        - portainer
+  keycloak:
+      image: jboss/keycloak
+      environment:
+        DB_VENDOR: POSTGRES
+        DB_ADDR: postgres
+        DB_DATABASE: keycloak
+        DB_SCHEMA: public
+        DB_USER: keycloak
+        DB_PASSWORD: password
+        KEYCLOAK_USER: admin
+        KEYCLOAK_PASSWORD: admin
+      ports:
+        - 30003:8080
+      depends_on:
+        - postgres
